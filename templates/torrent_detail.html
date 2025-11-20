@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="torrent-detail-container">
+        <div id="torrentDetail">
+            <!-- I dettagli del torrent verranno caricati qui -->
+        </div>
+        
+        <section class="comments-section">
+            <h3>Commenti</h3>
+            <div id="commentForm" class="auth-only" style="display: none;">
+                <form id="addCommentForm">
+                    <textarea id="commentText" placeholder="Scrivi un commento..." required></textarea>
+                    <div class="comment-rating">
+                        <label for="rating">Valutazione:</label>
+                        <select id="rating" name="rating">
+                            <option value="0">Seleziona una valutazione</option>
+                            <option value="1">1 - Pessimo</option>
+                            <option value="2">2 - Cattivo</option>
+                            <option value="3">3 - Medio</option>
+                            <option value="4">4 - Buono</option>
+                            <option value="5">5 - Eccellente</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-primary">Commenta</button>
+                </form>
+            </div>
+            
+            <div id="commentsList" class="comments-list">
+                <!-- I commenti verranno caricati qui -->
+            </div>
+        </section>
+    </div>
+</div>
+
+<script>
+    const torrentId = window.location.pathname.split('/').pop();
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadTorrentDetail();
+        if (window.torrentApp.currentUser) {
+            document.getElementById('commentForm').style.display = 'block';
+        }
+    });
+    
+    async function loadTorrentDetail() {
+        try {
+            const response = await fetch(`/api/torrents/${torrentId}`);
+            const data = await response.json();
+            const torrent = data.torrent;
+            
+            const detailHTML = `
+                <h1>${torrent.title}</h1>
+                <p>${torrent.description}</p>
+                <div class="torrent-info">
+                    <span><strong>Uploader:</strong> ${torrent.uploaderUsername}</span>
+                    <span><strong>Dimensione:</strong> ${torrent.size}</span>
+                    <span><strong>Download:</strong> ${torrent.downloadCount}</span>
+                    <span><strong>Categorie:</strong> ${torrent.categories.join(', ')}</span>
+                </div>
+                <button id="downloadBtn" class="btn-primary auth-only">Scarica</button>
+                <button id="loginPrompt" class="btn-primary guest-only" onclick="window.location.href='/login'">Accedi per scaricare</button>
+            `;
+            
+            document.getElementById('torrentDetail').innerHTML = detailHTML;
+            
+            // Mostra/nascondi il pulsante di download in base allo stato di autenticazione
+            if (window.torrentApp.currentUser) {
+                document.getElementById('downloadBtn').style.display = 'block';
+                document.getElementById('downloadBtn').addEventListener('click', downloadTorrent);
+                if (document.getElementById('loginPrompt')) {
+                    document.getElementById('loginPrompt').style.display = 'none';
+                }
+            } else {
+                if (document.getElementById('downloadBtn')) {
+                    document.getElementById('downloadBtn').style.display = 'none';
+                }
+            }
+            
+            // Carica i commenti
+            const commentsList = document.getElementById('commentsList');
+            commentsList.innerHTML = '';
+            
+            torrent.comments.forEach(comment => {
+                const commentEl = document.createElement('div');
+                commentEl.className = 'comment';
+                commentEl.innerHTML = `
+                    <p><strong>${comment.userUsername}</strong></p>
+                    <p>${comment.text}</p>
+                    <small>Valutazione: ${comment.rating}/5</small>
+                `;
+                commentsList.appendChild(commentEl);
+            });
+        } catch (error) {
+            console.error('Errore nel caricamento del torrent:', error);
+        }
+    }
+    
+    async function downloadTorrent() {
+        try {
+            const response = await fetch(`/api/torrents/${torrentId}/download`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${window.torrentApp.token}`
+                }
+            });
+            const data = await response.json();
+            
+            if (response.ok) {
+                window.torrentApp.showNotification('Download registrato con successo!', 'success');
+                await loadTorrentDetail(); // Aggiorna il contatore dei download
+            } else {
+                window.torrentApp.showNotification(data.error || 'Errore durante il download', 'error');
+            }
+        } catch (error) {
+            console.error('Errore:', error);
+            window.torrentApp.showNotification('Errore durante il download', 'error');
+        }
+    }
+    
+    document.getElementById('addCommentForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const text = document.getElementById('commentText').value;
+        const rating = parseInt(document.getElementById('rating').value) || 0;
+        
+        try {
+            const response = await fetch(`/api/torrents/${torrentId}/comments`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${window.torrentApp.token}`
+                },
+                body: JSON.stringify({ text, rating })
+            });
+            
+            if (response.ok) {
+                document.getElementById('addCommentForm').reset();
+                window.torrentApp.showNotification('Commento aggiunto con successo!', 'success');
+                await loadTorrentDetail();
+            } else {
+                const data = await response.json();
+                window.torrentApp.showNotification(data.error || 'Errore nell\'aggiunta del commento', 'error');
+            }
+        } catch (error) {
+            console.error('Errore:', error);
+            window.torrentApp.showNotification('Errore nell\'aggiunta del commento', 'error');
+        }
+    });
+</script>
+{% endblock %}

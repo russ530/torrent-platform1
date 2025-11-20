@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero">
+    <h1>🌍 Piattaforma di Condivisione Torrent</h1>
+    <p>Scopri, condividi e scarica i migliori torrent della comunità</p>
+</div>
+
+<div class="container">
+    <section class="search-section">
+        <h2>Cerca Torrent</h2>
+        <div class="search-container">
+            <input 
+                type="text" 
+                id="searchInput" 
+                class="search-input" 
+                placeholder="Cerca per titolo o descrizione..."
+            >
+            <button id="searchBtn" class="btn-primary">Cerca</button>
+        </div>
+        
+        <div class="filters">
+            <select id="categoryFilter" class="filter-select">
+                <option value="">Tutte le categorie</option>
+                <option value="Film">Film</option>
+                <option value="Serie TV">Serie TV</option>
+                <option value="Musica">Musica</option>
+                <option value="Giochi">Giochi</option>
+                <option value="Software">Software</option>
+                <option value="Libri">Libri</option>
+            </select>
+            
+            <select id="sortFilter" class="filter-select">
+                <option value="createdAt">Più recenti</option>
+                <option value="downloadCount">Più scaricati</option>
+                <option value="size">Per dimensione</option>
+            </select>
+            
+            <select id="orderFilter" class="filter-select">
+                <option value="desc">Decrescente</option>
+                <option value="asc">Crescente</option>
+            </select>
+        </div>
+    </section>
+
+    <section class="torrents-section">
+        <h2>Torrent Disponibili</h2>
+        <div id="torrentsList" class="torrents-grid">
+            <p>Caricamento...</p>
+        </div>
+        
+        <div id="pagination" class="pagination">
+            <button id="prevBtn" class="btn-secondary">← Precedente</button>
+            <span id="pageInfo"></span>
+            <button id="nextBtn" class="btn-secondary">Successivo →</button>
+        </div>
+    </section>
+</div>
+
+<script>
+    let currentPage = 1;
+    const itemsPerPage = 12;
+    let totalPages = 1;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadTorrents();
+        setupEventListeners();
+    });
+
+    function setupEventListeners() {
+        document.getElementById('searchBtn').addEventListener('click', () => {
+            currentPage = 1;
+            loadTorrents();
+        });
+
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                currentPage = 1;
+                loadTorrents();
+            }
+        });
+
+        document.getElementById('categoryFilter').addEventListener('change', () => {
+            currentPage = 1;
+            loadTorrents();
+        });
+
+        document.getElementById('sortFilter').addEventListener('change', () => {
+            currentPage = 1;
+            loadTorrents();
+        });
+
+        document.getElementById('orderFilter').addEventListener('change', () => {
+            currentPage = 1;
+            loadTorrents();
+        });
+
+        document.getElementById('prevBtn').addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                loadTorrents();
+                window.scrollTo(0, 0);
+            }
+        });
+
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            if (currentPage < totalPages) {
+                currentPage++;
+                loadTorrents();
+                window.scrollTo(0, 0);
+            }
+        });
+    }
+
+    async function loadTorrents() {
+        try {
+            const search = document.getElementById('searchInput').value;
+            const category = document.getElementById('categoryFilter').value;
+            const sortBy = document.getElementById('sortFilter').value;
+            const sortOrder = document.getElementById('orderFilter').value;
+
+            const url = new URL('/api/torrents', window.location.origin);
+            url.searchParams.append('page', currentPage);
+            url.searchParams.append('per_page', itemsPerPage);
+            if (search) url.searchParams.append('search', search);
+            if (category) url.searchParams.append('category', category);
+            url.searchParams.append('sort_by', sortBy);
+            url.searchParams.append('sort_order', sortOrder);
+
+            const response = await fetch(url);
+            const data = await response.json();
+
+            const torrentsList = document.getElementById('torrentsList');
+            torrentsList.innerHTML = '';
+
+            if (data.torrents.length === 0) {
+                torrentsList.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">Nessun torrent trovato</p>';
+            } else {
+                data.torrents.forEach(torrent => {
+                    const torrentCard = document.createElement('div');
+                    torrentCard.className = 'torrent-card';
+                    torrentCard.innerHTML = `
+                        <h3>${torrent.title}</h3>
+                        <p>${torrent.description.substring(0, 100)}...</p>
+                        <div class="torrent-meta">
+                            <span><strong>Uploader:</strong> ${torrent.uploaderUsername}</span>
+                            <span><strong>Download:</strong> ${torrent.downloadCount}</span>
+                            <span><strong>Categorie:</strong> ${torrent.categories.join(', ')}</span>
+                        </div>
+                        <a href="/torrent/${torrent._id}" class="btn-primary" style="display: inline-block; margin-top: 1rem;">Visualizza</a>
+                    `;
+                    torrentsList.appendChild(torrentCard);
+                });
+            }
+
+            // Aggiorna paginazione
+            totalPages = data.pagination.pages;
+            const pageInfo = document.getElementById('pageInfo');
+            pageInfo.textContent = `Pagina ${currentPage} di ${totalPages} (${data.pagination.total} torrenti)`;
+
+            document.getElementById('prevBtn').disabled = currentPage === 1;
+            document.getElementById('nextBtn').disabled = currentPage === totalPages;
+
+        } catch (error) {
+            console.error('Errore nel caricamento dei torrent:', error);
+            document.getElementById('torrentsList').innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: red;">Errore nel caricamento dei torrent</p>';
+        }
+    }
+</script>
+{% endblock %}

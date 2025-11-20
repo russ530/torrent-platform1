@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="profile-wrap">
+        <section class="profile-card">
+            <div class="avatar">
+                <div class="avatar-placeholder">👤</div>
+            </div>
+            <div class="profile-main">
+                <h2 id="profileUsername">Profilo Utente</h2>
+                <p id="profileRole" class="muted">Ruolo: <span></span></p>
+                <p id="profileEmail" class="muted"></p>
+                <p id="profileJoined" class="muted"></p>
+
+                <div class="profile-actions">
+                    <button id="editProfileBtn" class="btn-secondary">Modifica Profilo</button>
+                    <button id="changePassBtn" class="btn-primary">Cambia Password</button>
+                </div>
+            </div>
+            <div class="profile-stats">
+                <div class="stat">
+                    <h3 id="statUploads">0</h3>
+                    <small>Upload</small>
+                </div>
+                <div class="stat">
+                    <h3 id="statComments">0</h3>
+                    <small>Commenti</small>
+                </div>
+                <div class="stat">
+                    <h3 id="statDownloads">0</h3>
+                    <small>Download</small>
+                </div>
+            </div>
+        </section>
+
+        <section class="profile-torrents">
+            <h3>I tuoi Torrent</h3>
+            <div id="userTorrents" class="torrents-grid">
+                <!-- I torrent dell'utente verranno caricati qui -->
+            </div>
+        </section>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        if (!window.torrentApp || !window.torrentApp.currentUser) {
+            window.location.href = '/login';
+            return;
+        }
+
+        await loadProfile();
+        // small reveal animation trigger
+        document.querySelectorAll('.torrent-card').forEach((el, i) => {
+            el.style.animationDelay = (i * 60) + 'ms';
+            el.classList.add('reveal');
+        });
+    });
+
+    async function loadProfile() {
+        try {
+            const response = await fetch('/api/profile', {
+                headers: {
+                    'Authorization': `Bearer ${window.torrentApp.token}`
+                }
+            });
+
+            if (!response.ok) {
+                window.location.href = '/login';
+                return;
+            }
+
+            const data = await response.json();
+            const user = data.user;
+
+            document.getElementById('profileUsername').textContent = user.username;
+            document.getElementById('profileRole').querySelector('span').textContent = user.role;
+            document.getElementById('profileEmail').textContent = user.email;
+            document.getElementById('profileJoined').textContent = `Iscritto dal: ${new Date(user.createdAt).toLocaleDateString('it-IT')}`;
+
+            // Carica i torrent dell'utente
+            const torrentsResponse = await fetch(`/api/torrents?search=&category=&sort_by=createdAt&sort_order=desc`);
+            const torrentsData = await torrentsResponse.json();
+            const userTorrents = torrentsData.torrents.filter(t => t.uploaderId === user.id || t.uploader === user.username || t.uploaderId === user._id);
+
+            const torrentsList = document.getElementById('userTorrents');
+            torrentsList.innerHTML = '';
+
+            if (userTorrents.length === 0) {
+                torrentsList.innerHTML = '<p>Non hai caricato alcun torrent</p>';
+                return;
+            }
+
+            userTorrents.forEach(torrent => {
+                const torrentCard = document.createElement('div');
+                torrentCard.className = 'torrent-card';
+                torrentCard.innerHTML = `
+                    <div class="torrent-row">
+                        <div class="torrent-info-left">
+                            <h4>${torrent.title}</h4>
+                            <p class="muted">${torrent.description ? torrent.description.substring(0, 120) + '...' : ''}</p>
+                        </div>
+                        <div class="torrent-actions">
+                            <span class="muted small">${torrent.downloadCount || 0} download</span>
+                            <a href="/torrent/${torrent._id}" class="btn-primary">Visualizza</a>
+                        </div>
+                    </div>
+                `;
+                torrentsList.appendChild(torrentCard);
+            });
+
+            // Statistiche semplici
+            document.getElementById('statUploads').textContent = userTorrents.length;
+            document.getElementById('statComments').textContent = await fetchCommentsCount(user.id);
+            document.getElementById('statDownloads').textContent = userTorrents.reduce((s, t) => s + (t.downloadCount || 0), 0);
+        } catch (error) {
+            console.error('Errore nel caricamento del profilo:', error);
+            window.torrentApp.showNotification('Errore nel caricamento del profilo', 'error');
+        }
+    }
+
+    async function fetchCommentsCount(userId) {
+        try {
+            const res = await fetch('/api/comments?userId=' + userId, {
+                headers: { 'Authorization': `Bearer ${window.torrentApp.token}` }
+            });
+            if (!res.ok) return 0;
+            const data = await res.json();
+            return data.comments ? data.comments.length : 0;
+        } catch (e) {
+            return 0;
+        }
+    }
+</script>
+
+{% endblock %}

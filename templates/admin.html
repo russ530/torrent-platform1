@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="admin-container">
+        <h2>Pannello di Amministrazione</h2>
+        
+        <section class="stats-section">
+            <h3>Statistiche</h3>
+            <div id="statsContainer" class="stats-grid">
+                <!-- Le statistiche verranno caricate qui -->
+            </div>
+        </section>
+        
+        <section class="users-section">
+            <h3>Gestione Utenti</h3>
+            <div id="usersContainer" class="users-table">
+                <!-- La lista degli utenti verrà caricata qui -->
+            </div>
+        </section>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        if (!window.torrentApp.currentUser || window.torrentApp.currentUser.role !== 'admin') {
+            window.location.href = '/';
+            return;
+        }
+        
+        await loadStats();
+        await loadUsers();
+    });
+    
+    async function loadStats() {
+        try {
+            const response = await fetch('/api/admin/stats', {
+                headers: {
+                    'Authorization': `Bearer ${window.torrentApp.token}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error('Errore nel caricamento delle statistiche');
+            }
+            
+            const data = await response.json();
+            const stats = data.stats;
+            
+            const statsHTML = `
+                <div class="stat-card">
+                    <h4>Utenti Totali</h4>
+                    <p>${stats.total_users}</p>
+                </div>
+                <div class="stat-card">
+                    <h4>Torrent Totali</h4>
+                    <p>${stats.total_torrents}</p>
+                </div>
+                <div class="stat-card">
+                    <h4>Download Totali</h4>
+                    <p>${stats.total_downloads}</p>
+                </div>
+                <div class="stat-card">
+                    <h4>Commenti Totali</h4>
+                    <p>${stats.total_comments}</p>
+                </div>
+                <div class="stat-card">
+                    <h4>Torrent questa settimana</h4>
+                    <p>${stats.new_torrents_week}</p>
+                </div>
+                <div class="stat-card">
+                    <h4>Utenti Attivi (settimana)</h4>
+                    <p>${stats.active_users_week}</p>
+                </div>
+            `;
+            
+            document.getElementById('statsContainer').innerHTML = statsHTML;
+        } catch (error) {
+            console.error('Errore:', error);
+            window.torrentApp.showNotification('Errore nel caricamento delle statistiche', 'error');
+        }
+    }
+    
+    async function loadUsers() {
+        try {
+            const response = await fetch('/api/admin/users', {
+                headers: {
+                    'Authorization': `Bearer ${window.torrentApp.token}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error('Errore nel caricamento degli utenti');
+            }
+            
+            const data = await response.json();
+            
+            const table = document.createElement('table');
+            table.className = 'users-table';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Ruolo</th>
+                        <th>Bannato</th>
+                        <th>Azioni</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                </tbody>
+            `;
+            
+            const tbody = table.querySelector('#usersTableBody');
+            
+            data.users.forEach(user => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${user.username}</td>
+                    <td>${user.email}</td>
+                    <td>
+                        <select onchange="updateRole('${user._id}', this.value)">
+                            <option value="user" ${user.role === 'user' ? 'selected' : ''}>User</option>
+                            <option value="moderator" ${user.role === 'moderator' ? 'selected' : ''}>Moderator</option>
+                            <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+                        </select>
+                    </td>
+                    <td>
+                        <input type="checkbox" ${user.banned ? 'checked' : ''} onchange="toggleBan('${user._id}', this.checked)">
+                    </td>
+                    <td>
+                        <button onclick="deleteUser('${user._id}')" class="btn-danger">Elimina</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            document.getElementById('usersContainer').innerHTML = '';
+            document.getElementById('usersContainer').appendChild(table);
+        } catch (error) {
+            console.error('Errore:', error);
+            window.torrentApp.showNotification('Errore nel caricamento degli utenti', 'error');
+        }
+    }
+    
+    async function updateRole(userId, role) {
+        try {
+            const response = await fetch(`/api/admin/users/${userId}/role`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${window.torrentApp.token}`
+                },
+                body: JSON.stringify({ role })
+            });
+            
+            if (response.ok) {
+                window.torrentApp.showNotification('Ruolo aggiornato con successo', 'success');
+            } else {
+                const data = await response.json();
+                window.torrentApp.showNotification(data.error || 'Errore nell\'aggiornamento del ruolo', 'error');
+            }
+        } catch (error) {
+            console.error('Errore:', error);
+            window.torrentApp.showNotification('Errore nell\'aggiornamento del ruolo', 'error');
+        }
+    }
+    
+    async function toggleBan(userId, banned) {
+        try {
+            const response = await fetch(`/api/admin/users/${userId}/ban`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${window.torrentApp.token}`
+                },
+                body: JSON.stringify({ banned })
+            });
+            
+            if (response.ok) {
+                const action = banned ? 'bannato' : 'sbannato';
+                window.torrentApp.showNotification(`Utente ${action} con successo`, 'success');
+            } else {
+                const data = await response.json();
+                window.torrentApp.showNotification(data.error || 'Errore nel ban dell\'utente', 'error');
+            }
+        } catch (error) {
+            console.error('Errore:', error);
+            window.torrentApp.showNotification('Errore nel ban dell\'utente', 'error');
+        }
+    }
+    
+    function deleteUser(userId) {
+        if (confirm('Sei sicuro di voler eliminare questo utente?')) {
+            window.torrentApp.showNotification('Funzione di eliminazione non ancora implementata', 'info');
+        }
+    }
+</script>
+{% endblock %}

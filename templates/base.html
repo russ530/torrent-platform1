@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Torrent Platform</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-left">
+                <div class="nav-logo">
+                    <a href="/">Torrent<span class="logo-highlight">Platform</span></a>
+                </div>
+            </div>
+
+            <button id="navToggle" class="nav-toggle" aria-label="Apri menu">
+                <span class="hamburger"></span>
+            </button>
+
+            <div class="nav-links" id="navLinks">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/upload" class="nav-link auth-only" style="display:none;">Upload</a>
+                <a href="/profile" class="nav-link auth-only" style="display:none;">Profilo</a>
+                <a href="/admin" class="nav-link auth-only" id="admin-menu" style="display:none;">Admin</a>
+                <a href="#" id="logout" class="nav-link auth-only" style="display:none;">Logout</a>
+                <a href="/login" class="nav-link guest-only">Login</a>
+                <a href="/register" class="nav-link guest-only">Registrati</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <p>&copy; 2024 Torrent Platform. Tutti i diritti riservati.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
