@@ -257,3 +257,128 @@ Sviluppato come piattaforma di condivisione file torrent completa.
 ## 📧 Contatti e Supporto
 
 Per supporto, contatta l'amministratore della piattaforma.
+
+**lo schema JSON delle collezioni**
+---
+
+## **1️⃣ Collection: users**
+
+Ogni utente ha:
+
+* `username` unico
+* `email` unico
+* `passwordHash` (lo script usa la funzione `User.create_user`)
+* `role` (admin, moderator, user)
+* `banned` (opzionale, default `False`)
+* `createdAt` (data creazione)
+
+```json
+{
+  "bsonType": "object",
+  "required": ["username", "email", "passwordHash", "role", "createdAt", "banned"],
+  "properties": {
+    "username": {
+      "bsonType": "string",
+      "description": "Nome univoco dell'utente"
+    },
+    "email": {
+      "bsonType": "string",
+      "pattern": "^.+@.+\\..+$",
+      "description": "Email dell'utente"
+    },
+    "passwordHash": {
+      "bsonType": "string",
+      "description": "Hash della password"
+    },
+    "role": {
+      "bsonType": "string",
+      "enum": ["guest", "user", "moderator", "admin"],
+      "description": "Ruolo dell'utente"
+    },
+    "banned": {
+      "bsonType": "bool",
+      "description": "Indica se l'utente è stato bannato"
+    },
+    "createdAt": {
+      "bsonType": "date",
+      "description": "Data registrazione"
+    }
+  }
+}
+```
+
+---
+
+## **2️⃣ Collection: torrents**
+
+Ogni torrent ha:
+
+* `title`
+* `description` max 160 caratteri
+* `size` in MB/GB
+* `categories` array
+* `images` array
+* `uploaderId` riferimento a `users._id`
+* `torrentFilePath`
+* `downloadCount` intero
+* `createdAt` data creazione
+
+```json
+{
+  "bsonType": "object",
+  "required": ["title", "description", "size", "categories", "uploaderId", "torrentFilePath", "downloadCount", "createdAt"],
+  "properties": {
+    "title": { "bsonType": "string" },
+    "description": { "bsonType": "string", "maxLength": 160 },
+    "size": { "bsonType": "int", "minimum": 0 },
+    "categories": { "bsonType": "array", "items": { "bsonType": "string" } },
+    "images": { "bsonType": "array", "items": { "bsonType": "string" } },
+    "uploaderId": { "bsonType": "objectId" },
+    "torrentFilePath": { "bsonType": "string" },
+    "downloadCount": { "bsonType": "int", "minimum": 0 },
+    "createdAt": { "bsonType": "date" }
+  }
+}
+```
+
+---
+
+## **3️⃣ Collection: comments**
+
+Ogni commento ha:
+
+* `torrentId` riferimento a `torrents._id`
+* `userId` riferimento a `users._id`
+* `text` max 160 caratteri
+* `rating` da 1 a 5
+* `createdAt` data creazione
+* `updatedAt` data ultima modifica
+
+```json
+{
+  "bsonType": "object",
+  "required": ["torrentId", "userId", "text", "rating", "createdAt"],
+  "properties": {
+    "torrentId": { "bsonType": "objectId" },
+    "userId": { "bsonType": "objectId" },
+    "text": { "bsonType": "string", "maxLength": 160 },
+    "rating": { "bsonType": "int", "minimum": 1, "maximum": 5 },
+    "createdAt": { "bsonType": "date" },
+    "updatedAt": { "bsonType": "date" }
+  }
+}
+```
+
+---
+
+## **Nota**
+
+* Lo script aggiunge anche un campo `downloadCount` per i torrent.
+* I campi `images` e `categories` sono array di stringhe.
+* L’ID dell’utente e del torrent sono **ObjectId di MongoDB**, quindi bisogna usare `.toString()` lato frontend per confronti.
+
+---
+
+Se vuoi, posso creare **uno schema JSON completo pronto da importare in MongoDB Atlas** tramite la funzione di validazione JSON Schema per tutte e tre le collezioni, così il tuo database sarà completamente strutturato e protetto.
+
+Vuoi che faccia anche questo?
